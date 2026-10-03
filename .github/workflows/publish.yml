@@ -4,6 +4,11 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag (e.g. v1.0.0)'
+        required: true
 
 permissions:
   packages: write
@@ -29,7 +34,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ghcr.io/${{ github.actor }}/meal-planner-backend:${{ github.ref_name }}
+            ghcr.io/${{ github.actor }}/meal-planner-backend:${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
             ghcr.io/${{ github.actor }}/meal-planner-backend:latest
 
       - name: Build and push frontend
@@ -39,5 +44,5 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ghcr.io/${{ github.actor }}/meal-planner-frontend:${{ github.ref_name }}
+            ghcr.io/${{ github.actor }}/meal-planner-frontend:${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
             ghcr.io/${{ github.actor }}/meal-planner-frontend:latest
