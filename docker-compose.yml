@@ -1,0 +1,17 @@
+services:
+  backend:
+    build: ./backend
+    container_name: meal-planner-backend
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/meals.db:/app/meals.db
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: meal-planner-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
