@@ -18,6 +18,7 @@ dist/
 
 # Data
 backend/meals.db
+backend/uploads/
 
 # IDE
 .idea/

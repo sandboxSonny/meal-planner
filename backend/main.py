@@ -1,6 +1,9 @@
 import os
 import random
 import shutil
+import uuid
+from PIL import Image as PILImage
+from io import BytesIO
 
 import database
 import models
@@ -39,21 +42,32 @@ async def create_meal(
 ):
     image_url = None
     if image:
-        image_path = os.path.join(UPLOAD_DIR, image.filename)
-        with open(image_path, "wb") as buffer:
-            shutil.copyfileobj(image.file, buffer)
-        # The frontend uses /uploads/filename, Nginx/FastAPI will map this
-        image_url = f"/uploads/{image.filename}"
+        filename = f"{uuid.uuid4()}.jpg"
+        image_path = os.path.join(UPLOAD_DIR, filename)
+        img = PILImage.open(image.file).convert("RGB")
+        size = (200, 200)
+        # Crop to square from center, then resize
+        w, h = img.size
+        side = min(w, h)
+        left = (w - side) // 2
+        top = (h - side) // 2
+        img = img.crop((left, top, left + side, top + side))
+        img = img.resize(size, PILImage.LANCZOS)
+        img.save(image_path, "JPEG", quality=85)
+        image_url = f"/uploads/{filename}"
 
     new_meal = models.Meal(name=name, ingredients=ingredients, image_url=image_url)
     db.add(new_meal)
     db.commit()
-    return new_meal
+    return {"id": new_meal.id, "name": new_meal.name, "ingredients": new_meal.ingredients, "image_url": new_meal.image_url}
 
 
 @app.get("/meals/")
 async def get_meals(db: Session = Depends(database.get_db)):
-    return db.query(models.Meal).all()
+    return [
+        {"id": m.id, "name": m.name, "ingredients": m.ingredients, "image_url": m.image_url}
+        for m in db.query(models.Meal).all()
+    ]
 
 @app.delete("/meals/{meal_id}")
 async def delete_meal(meal_id: int, db: Session = Depends(database.get_db)):
@@ -80,7 +94,14 @@ async def generate_plan(date_str: str = None, db: Session = Depends(database.get
         items = [i.strip() for i in meal.ingredients.split(",")]
         shopping_list.extend(items)
 
-    return {"date": date_str, "meals": selected_meals, "shopping_list": shopping_list}
+    return {
+        "date": date_str,
+        "meals": [
+            {"id": m.id, "name": m.name, "ingredients": m.ingredients, "image_url": m.image_url}
+            for m in selected_meals
+        ],
+        "shopping_list": shopping_list
+    }
 
 
 if __name__ == "__main__":
