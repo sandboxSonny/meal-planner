@@ -1,11 +1,13 @@
 import os
 import random
 import shutil
-from fastapi import FastAPI, Depends, UploadFile, File, Form
+
+import database
+import models
+from fastapi import Depends, FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-import models, database
 
 # Create database tables
 models.Base.metadata.create_all(bind=database.engine)
@@ -27,12 +29,13 @@ if not os.path.exists(UPLOAD_DIR):
 
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
+
 @app.post("/meals/")
 async def create_meal(
     name: str = Form(...),
     ingredients: str = Form(...),
     image: UploadFile = File(None),
-    db: Session = Depends(database.get_db)
+    db: Session = Depends(database.get_db),
 ):
     image_url = None
     if image:
@@ -47,31 +50,40 @@ async def create_meal(
     db.commit()
     return new_meal
 
+
 @app.get("/meals/")
 async def get_meals(db: Session = Depends(database.get_db)):
     return db.query(models.Meal).all()
+
+@app.delete("/meals/{meal_id}")
+async def delete_meal(meal_id: int, db: Session = Depends(database.get_db)):
+    meal = db.query(models.Meal).filter(models.Meal.id == meal_id).first()
+    if not meal:
+        return {"message": "Meal not found"}, 404
+    db.delete(meal)
+    db.commit()
+    return {"message": "Meal deleted"}
+
 
 @app.get("/generate-plan/")
 async def generate_plan(date_str: str = None, db: Session = Depends(database.get_db)):
     meals = db.query(models.Meal).all()
     if not meals:
         return {"meals": [], "shopping_list": []}
-    
-    # Select 3 random meals (or fewer if not enough)
-    selected_meals = random.sample(meals, min(len(meals), 3))
-    
+
+    # Select 7 random meals (or fewer if not enough)
+    selected_meals = random.sample(meals, min(len(meals), 7))
+
     shopping_list = []
     for meal in selected_meals:
         # Split ingredients back into a list
         items = [i.strip() for i in meal.ingredients.split(",")]
         shopping_list.extend(items)
-        
-    return {
-        "date": date_str,
-        "meals": selected_meals,
-        "shopping_list": shopping_list
-    }
+
+    return {"date": date_str, "meals": selected_meals, "shopping_list": shopping_list}
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

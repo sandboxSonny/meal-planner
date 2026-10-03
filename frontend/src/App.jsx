@@ -1,5 +1,19 @@
 import React, { useState, useEffect } from "react";
 
+function getMonday(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  return new Date(d.setDate(diff));
+}
+
+function formatDate(dateStr) {
+  return new Date(dateStr).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
 const API_BASE = "/api";
 
 function App() {
@@ -7,7 +21,7 @@ function App() {
   const [plan, setPlan] = useState(null);
   const [view, setView] = useState("vault");
   const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split("T")[0],
+    getMonday(new Date()).toISOString().split("T")[0],
   );
   const [formData, setFormData] = useState({
     name: "",
@@ -38,6 +52,21 @@ function App() {
     setLoading(false);
   };
 
+  const changeWeek = (direction) => {
+    const current = new Date(selectedDate);
+    current.setDate(current.getDate() + direction * 7);
+    const monday = getMonday(current).toISOString().split("T")[0];
+    setSelectedDate(monday);
+    fetchPlan(monday);
+  };
+
+  const weekDays = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() + i);
+    weekDays.push(d.toISOString().split("T")[0]);
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const data = new FormData();
@@ -47,6 +76,11 @@ function App() {
 
     await fetch(`${API_BASE}/meals/`, { method: "POST", body: data });
     setFormData({ name: "", ingredients: "", image: null });
+    fetchMeals();
+  };
+
+  const deleteMeal = async (id) => {
+    await fetch(`${API_BASE}/meals/${id}`, { method: "DELETE" });
     fetchMeals();
   };
 
@@ -150,6 +184,13 @@ function App() {
                         {meal.ingredients}
                       </p>
                     </div>
+                    <button
+                      onClick={() => deleteMeal(meal.id)}
+                      className="text-gray-400 hover:text-red-500 transition p-2"
+                      title="Delete meal"
+                    >
+                      ✕
+                    </button>
                   </div>
                 ))}
               </div>
@@ -157,74 +198,79 @@ function App() {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Date Picker Control */}
-            <div className="bg-white p-4 rounded-xl shadow-sm flex items-center gap-4">
-              <label className="font-semibold text-gray-700">
-                Plan for date:
-              </label>
-              <input
-                type="date"
-                className="border p-1 rounded"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-              />
-              <button
-                onClick={() => fetchPlan(selectedDate)}
-                className="bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700"
-              >
-                Update Plan
-              </button>
+            {/* Week Navigation */}
+            <div className="bg-white p-4 rounded-xl shadow-sm flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => changeWeek(-1)}
+                  className="bg-gray-200 text-gray-700 px-3 py-1 rounded hover:bg-gray-300"
+                >
+                  ←
+                </button>
+                <span className="font-semibold text-gray-700">
+                  {formatDate(weekDays[0])} – {formatDate(weekDays[6])}
+                </span>
+                <button
+                  onClick={() => changeWeek(1)}
+                  className="bg-gray-200 text-gray-700 px-3 py-1 rounded hover:bg-gray-300"
+                >
+                  →
+                </button>
+                <button
+                  onClick={() => fetchPlan(selectedDate)}
+                  className="bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700"
+                >
+                  Regenerate
+                </button>
+              </div>
             </div>
 
-            <div className="bg-white p-8 rounded-xl shadow-md">
+            {/* Weekly Plan */}
+            <div className="bg-white p-6 rounded-xl shadow-md">
               <h2 className="text-2xl font-bold mb-6 text-blue-800">
-                Menu for {selectedDate}
+                Weekly Menu
               </h2>
               {loading ? (
                 <div className="flex justify-center py-10">
                   <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
                 </div>
               ) : plan ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                  <div>
-                    <h3 className="font-semibold text-gray-500 uppercase mb-4 border-b pb-2">
-                      The Menu
-                    </h3>
-                    <ul className="space-y-4">
-                      {plan.meals.length > 0 ? (
-                        plan.meals.map((m, i) => (
-                          <li
-                            key={i}
-                            className="p-4 bg-blue-50 rounded-lg border-l-4 border-blue-500"
-                          >
-                            <span className="font-bold text-gray-800">
-                              {m.name}
-                            </span>
-                          </li>
-                        ))
-                      ) : (
-                        <li className="text-gray-400">
-                          No meals available to pick from. Add more in The
-                          Vault!
-                        </li>
-                      )}
-                    </ul>
+                <div className="space-y-6">
+                  {/* 7-Day Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {plan.meals.map((m, i) => (
+                      <div
+                        key={i}
+                        className="bg-blue-50 rounded-lg border-l-4 border-blue-500 p-4"
+                      >
+                        <span className="text-sm text-gray-500 font-semibold">
+                          {weekDays[i] ? formatDate(weekDays[i]) : `Day ${i + 1}`}
+                        </span>
+                        <h3 className="font-bold text-gray-800 mt-1">
+                          {m.name}
+                        </h3>
+                      </div>
+                    ))}
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-500 uppercase mb-4 border-b pb-2">
+
+                  {/* Shopping List */}
+                  <div className="border-t pt-4">
+                    <h3 className="font-semibold text-gray-500 uppercase mb-3">
                       Shopping List
                     </h3>
-                    <ul className="list-disc list-inside space-y-2">
-                      {plan.shopping_list.length > 0 ? (
-                        plan.shopping_list.map((item, i) => (
+                    {plan.shopping_list.length > 0 ? (
+                      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {plan.shopping_list.map((item, i) => (
                           <li key={i} className="text-gray-700">
-                            {item}
+                            • {item}
                           </li>
-                        ))
-                      ) : (
-                        <li className="text-gray-400">No items</li>
-                      )}
-                    </ul>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-gray-400">
+                        No items. Add more meals in The Vault!
+                      </p>
+                    )}
                   </div>
                 </div>
               ) : (
