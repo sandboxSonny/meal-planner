@@ -39,6 +39,7 @@ jobs:
           tags: |
             ghcr.io/${{ env.LOWERCASE_ACTOR }}/meal-planner-backend:${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
             ghcr.io/${{ env.LOWERCASE_ACTOR }}/meal-planner-backend:latest
+          driver: docker-container
 
       - name: Build and push frontend
         uses: docker/build-push-action@v6
@@ -49,3 +50,4 @@ jobs:
           tags: |
             ghcr.io/${{ env.LOWERCASE_ACTOR }}/meal-planner-frontend:${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
             ghcr.io/${{ env.LOWERCASE_ACTOR }}/meal-planner-frontend:latest
+          driver: docker-container
