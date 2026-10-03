@@ -1,0 +1,17 @@
+# Stage 1: Build frontend
+FROM node:20-alpine AS build-stage
+WORKDIR /app
+COPY frontend/package*.json ./
+RUN npm install
+COPY frontend/. .
+RUN VITE_API_BASE= npm run build
+
+# Stage 2: Backend + frontend static files
+FROM python:3.11-slim
+WORKDIR /app
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY backend/. .
+COPY --from=build-stage /app/dist /frontend/dist
+EXPOSE 8000
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

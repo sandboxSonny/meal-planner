@@ -2,7 +2,6 @@ import os
 import random
 import shutil
 import uuid
-from PIL import Image as PILImage
 from io import BytesIO
 
 import database
@@ -10,6 +9,7 @@ import models
 from fastapi import Depends, FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from PIL import Image as PILImage
 from sqlalchemy.orm import Session
 
 # Create database tables
@@ -31,7 +31,6 @@ if not os.path.exists(UPLOAD_DIR):
     os.makedirs(UPLOAD_DIR)
 
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
-
 
 @app.post("/meals/")
 async def create_meal(
@@ -59,15 +58,26 @@ async def create_meal(
     new_meal = models.Meal(name=name, ingredients=ingredients, image_url=image_url)
     db.add(new_meal)
     db.commit()
-    return {"id": new_meal.id, "name": new_meal.name, "ingredients": new_meal.ingredients, "image_url": new_meal.image_url}
+    return {
+        "id": new_meal.id,
+        "name": new_meal.name,
+        "ingredients": new_meal.ingredients,
+        "image_url": new_meal.image_url,
+    }
 
 
 @app.get("/meals/")
 async def get_meals(db: Session = Depends(database.get_db)):
     return [
-        {"id": m.id, "name": m.name, "ingredients": m.ingredients, "image_url": m.image_url}
+        {
+            "id": m.id,
+            "name": m.name,
+            "ingredients": m.ingredients,
+            "image_url": m.image_url,
+        }
         for m in db.query(models.Meal).all()
     ]
+
 
 @app.delete("/meals/{meal_id}")
 async def delete_meal(meal_id: int, db: Session = Depends(database.get_db)):
@@ -97,11 +107,32 @@ async def generate_plan(date_str: str = None, db: Session = Depends(database.get
     return {
         "date": date_str,
         "meals": [
-            {"id": m.id, "name": m.name, "ingredients": m.ingredients, "image_url": m.image_url}
+            {
+                "id": m.id,
+                "name": m.name,
+                "ingredients": m.ingredients,
+                "image_url": m.image_url,
+            }
             for m in selected_meals
         ],
-        "shopping_list": shopping_list
+        "shopping_list": shopping_list,
     }
+
+
+# Serve frontend static files (after API routes so they take priority)
+FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+if os.path.isdir(FRONTEND_DIR):
+    from fastapi.responses import FileResponse
+
+    @app.get("/{path:path}", include_in_schema=False)
+    async def serve_frontend(path: str = "/"):
+        if path == "/":
+            path = "index.html"
+        file_path = os.path.join(FRONTEND_DIR, path.lstrip("/"))
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        # SPA fallback: return index.html
+        return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
 
 
 if __name__ == "__main__":
