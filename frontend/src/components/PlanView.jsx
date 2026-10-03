@@ -45,7 +45,7 @@ export default function PlanView({
               </h3>
               {plan.shopping_list.length > 0 ? (
                 <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {plan.shopping_list.map((item, i) => (
+                  {[...new Set(plan.shopping_list)].map((item, i) => (
                     <li key={i} className="text-gray-700">
                       • {item}
                     </li>
