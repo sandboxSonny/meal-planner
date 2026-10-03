@@ -12,8 +12,10 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image as PILImage
 from sqlalchemy.orm import Session
 
-# Create database tables
-models.Base.metadata.create_all(bind=database.engine)
+# Create database tables (only on first run)
+import os as _os
+if not _os.path.exists("meals.db"):
+    models.Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI()
 
